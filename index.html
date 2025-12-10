@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grammar Slots Audio</title>
+    <style>
+        /* --- GLOBAL RESET & VARS --- */
+        :root {
+            --bg-body: #ebedf0;
+            --bg-card: #ffffff;
+            --text-primary: #2d3436;
+            --text-secondary: #636e72;
+            
+            --gradient-primary: linear-gradient(135deg, #6c5ce7 0%, #0984e3 100%);
+            --gradient-success: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+            --shadow-primary: 0 10px 25px rgba(9, 132, 227, 0.3);
+            
+            --color-success: #00b894;
+            --color-error: #ff7675;
+            
+            /* SIZES */
+            --slot-height: 70px; 
+            --reel-bg: #f1f2f6;
+            --gap-size: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-card {
+            background: var(--bg-card);
+            width: 95%;
+            max-width: 800px;
+            height: 92vh;
+            max-height: 650px; 
+            
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 10px;
+            position: relative;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+        }
+
+        .level-pill {
+            background-color: #dfe6e9;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .task-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            flex-grow: 0;
+            margin-bottom: 5px;
+            padding: 0 10px;
+        }
+
+        .sentence-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .sentence-text {
+            font-size: 1.5rem; 
+            font-weight: 800;
+            text-align: center;
+            line-height: 1.2;
+            color: var(--text-primary);
+            margin: 5px 0;
+        }
+
+        .lock-icon {
+            font-size: 1.5rem; 
+            flex-shrink: 0;
+            transition: all 0.4s;
+        }
+        .lock-closed { color: #b2bec3; }
+        .lock-error { color: var(--color-error); }
+        .lock-open { color: var(--color-success); transform: scale(1.2); }
+
+        .answer-reveal {
+            margin-top: 5px;
+            font-size: 1rem;
+            color: var(--color-success);
+            font-weight: 600;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: all 0.3s ease;
+            text-align: center;
+            min-height: 24px;
+        }
+        .answer-reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+        .shake { animation: shake 0.4s ease-in-out; }
+
+        .slot-machine-wrapper {
+            width: 100%;
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            overflow: hidden; 
+            margin: 10px 0;
+        }
+
+        .selection-frame {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: var(--slot-height);
+            transform: translateY(-50%);
+            border-top: 2px solid rgba(108, 92, 231, 0.4);
+            border-bottom: 2px solid rgba(108, 92, 231, 0.4);
+            background: rgba(108, 92, 231, 0.05);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .slot-row {
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-start;
+            align-items: center;
+            gap: var(--gap-size);
+            width: 100%;
+            height: calc(var(--slot-height) * 3);
+            overflow-x: auto; 
+            overflow-y: hidden;
+            padding: 0 10px;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+        }
+
+        .reel {
+            flex: 0 0 auto; 
+            width: max-content; 
+            min-width: 80px;
+            background: var(--reel-bg);
+            border-radius: 12px;
+            height: 100%;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scrollbar-width: none;
+            padding-top: var(--slot-height);
+            padding-bottom: var(--slot-height);
+        }
+        .reel::-webkit-scrollbar { display: none; }
+
+        .reel-item {
+            height: var(--slot-height);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            scroll-snap-align: center;
+            user-select: none;
+            white-space: nowrap;
+            padding: 0 15px;
+        }
+
+        .swipe-hint {
+            width: 100%;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #b2bec3;
+            margin-bottom: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        .btn-check {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 50px;
+            background: var(--gradient-primary);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: var(--shadow-primary);
+            transition: transform 0.2s, background 0.3s;
+            z-index: 20;
+            margin-bottom: 5px;
+        }
+        .btn-check:active { transform: scale(0.97); }
+        .btn-check.next-mode {
+            background: var(--gradient-success);
+        }
+
+        .results-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            background: var(--bg-card);
+            border-radius: 30px;
+            z-index: 50;
+        }
+        .score-big { font-size: 3.5rem; color: var(--color-success); font-weight: 800; margin: 15px 0; }
+        
+        @keyframes pulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+            100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- AUDIO FILES LOADED HERE -->
+    <audio id="audio-tick" src="1.mp3" preload="auto"></audio>
+    <audio id="audio-win" src="2.mp3" preload="auto"></audio>
+
+    <div class="main-card">
+        <div class="level-pill" id="level-indicator">Level 1</div>
+
+        <div class="task-area" id="game-area">
+            <div class="sentence-wrapper">
+                <div class="lock-icon lock-closed" id="lock-left">🔒</div>
+                <div class="sentence-text" id="russian-text">Loading...</div>
+                <div class="lock-icon lock-closed" id="lock-right">🔒</div>
+            </div>
+            <div class="answer-reveal" id="answer-reveal"></div>
+        </div>
+
+        <div class="slot-machine-wrapper" id="slot-wrapper">
+            <div class="selection-frame"></div>
+            <div class="slot-row" id="slot-container">
+                <!-- Reels JS -->
+            </div>
+        </div>
+        
+        <div class="swipe-hint">↔️ Swipe left/right ↔️</div>
+
+        <button class="btn-check" id="action-btn">CHECK</button>
+
+        <div class="results-container" id="results-area">
+            <h2>Well Done!</h2>
+            <div class="score-big" id="final-score">0/0</div>
+            <p>Locks Opened</p>
+        </div>
+    </div>
+
+<script>
+    const wordBank = [
+        ["I", "We", "She", "You", "Where"], 
+        ["have", "'m having", "had", "need to have", "has just had", "will have", "should have", "do you usually have", "are going to have", "have never had"], 
+        ["my hair", "my car", "my watch", "the roof", "her nails", "the package", "your eyes", "your photos", "our house", "my fortune"], 
+        ["cut", "repaired", "fixed", "done", "delivered", "tested", "taken", "painted", "told"], 
+        ["every month", "right now", "yesterday", "tomorrow", "—", "?"]
+    ];
+
+    const levelsSource = [
+        { ru: "Я стригусь каждый месяц.", en: ["I", "have", "my hair", "cut", "every month"] },
+        { ru: "Мне сейчас чинят машину.", en: ["I", "'m having", "my car", "repaired", "right now"] },
+        { ru: "Мне починили часы вчера.", en: ["I", "had", "my watch", "fixed", "yesterday"] },
+        { ru: "Нам нужно починить крышу.", en: ["We", "need to have", "the roof", "repaired", "—"] },
+        { ru: "Ей только что сделали маникюр.", en: ["She", "has just had", "her nails", "done", "—"] },
+        { ru: "Мне доставят посылку завтра.", en: ["I", "will have", "the package", "delivered", "tomorrow"] },
+        { ru: "Тебе следует проверить зрение.", en: ["You", "should have", "your eyes", "tested", "—"] },
+        { ru: "Где ты обычно фотографируешься?", en: ["Where", "do you usually have", "your photos", "taken", "?"] },
+        { ru: "Мы собираемся покрасить дом.", en: ["We", "are going to have", "our house", "painted", "—"] },
+        { ru: "Мне никогда не гадали.", en: ["I", "have never had", "my fortune", "told", "—"] }
+    ];
+
+    let levels = []; 
+    let currentLevelIdx = 0;
+    let score = 0;
+    let isLevelComplete = false;
+    const REPEAT_COUNT = 30;
+
+    const slotContainer = document.getElementById('slot-container');
+    const ruText = document.getElementById('russian-text');
+    const lockLeft = document.getElementById('lock-left');
+    const lockRight = document.getElementById('lock-right');
+    const actionBtn = document.getElementById('action-btn');
+    const answerReveal = document.getElementById('answer-reveal');
+    const levelIndicator = document.getElementById('level-indicator');
+    const resultsArea = document.getElementById('results-area');
+    const finalScoreEl = document.getElementById('final-score');
+    
+    // Audio Elements
+    const audioTick = document.getElementById('audio-tick');
+    const audioWin = document.getElementById('audio-win');
+
+    function init() {
+        levels = shuffleArray([...levelsSource]); 
+        createReels();
+        loadLevel(0);
+        actionBtn.addEventListener('click', handleBtnClick);
+    }
+
+    // --- SOUND FUNCTIONS ---
+    function playTick() {
+        try {
+            // Reset time to 0 to allow rapid firing
+            if (!audioTick.paused) {
+                audioTick.currentTime = 0;
+            } else {
+                audioTick.play().catch(e => { /* Ignore auto-play errors */ });
+            }
+        } catch (e) {
+            console.log("Audio play failed (interaction required)");
+        }
+    }
+
+    function playWin() {
+        try {
+            audioWin.currentTime = 0;
+            audioWin.play().catch(e => {});
+        } catch (e) {}
+    }
+    // -----------------------
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    function createReels() {
+        slotContainer.innerHTML = '';
+        const itemHeight = getSlotHeight();
+
+        wordBank.forEach((words) => {
+            const reel = document.createElement('div');
+            reel.className = 'reel';
+            
+            let htmlContent = '';
+            for (let i = 0; i < REPEAT_COUNT; i++) {
+                const subWords = [...words].sort(() => Math.random() - 0.5);
+                subWords.forEach(word => {
+                    htmlContent += `<div class="reel-item">${word}</div>`;
+                });
+            }
+            reel.innerHTML = htmlContent;
+
+            // Track previous index to trigger sound on change
+            let lastScrollIndex = 0;
+            let isScrolling;
+
+            reel.addEventListener('scroll', () => {
+                // Sound Logic
+                const currentScroll = reel.scrollTop;
+                const currentIndex = Math.round(currentScroll / itemHeight);
+                
+                if (currentIndex !== lastScrollIndex) {
+                    playTick();
+                    lastScrollIndex = currentIndex;
+                }
+
+                // Snap Logic
+                window.clearTimeout(isScrolling);
+                isScrolling = setTimeout(() => handleScrollStop(reel), 100);
+            });
+
+            slotContainer.appendChild(reel);
+        });
+    }
+
+    function handleScrollStop(reel) {
+        const itemHeight = getSlotHeight();
+        const currentScroll = reel.scrollTop;
+        const totalHeight = reel.scrollHeight;
+        
+        if (currentScroll < itemHeight * 5) {
+            reel.scrollTo({ top: totalHeight / 2, behavior: 'auto' });
+        } else if (currentScroll > totalHeight - (itemHeight * 5)) {
+            reel.scrollTo({ top: totalHeight / 2, behavior: 'auto' });
+        } else {
+            const exactIndex = Math.round(currentScroll / itemHeight);
+            const idealPos = exactIndex * itemHeight;
+            if (Math.abs(currentScroll - idealPos) > 1) {
+                 reel.scrollTo({ top: idealPos, behavior: 'smooth' });
+            }
+        }
+    }
+
+    function loadLevel(idx) {
+        if (idx >= levels.length) {
+            showEndScreen();
+            return;
+        }
+
+        currentLevelIdx = idx;
+        isLevelComplete = false;
+
+        ruText.innerText = levels[currentLevelIdx].ru;
+        levelIndicator.innerText = `Level ${currentLevelIdx + 1} / ${levels.length}`;
+        answerReveal.classList.remove('visible');
+        answerReveal.innerText = "";
+        
+        [lockLeft, lockRight].forEach(lock => {
+            lock.className = 'lock-icon lock-closed';
+            lock.innerText = '🔒';
+        });
+
+        actionBtn.innerText = 'CHECK';
+        actionBtn.classList.remove('next-mode');
+        
+        scrambleSlots();
+    }
+
+    function scrambleSlots() {
+        const reels = document.querySelectorAll('.reel');
+        const itemHeight = getSlotHeight();
+        reels.forEach((reel) => {
+            const totalItems = reel.children.length;
+            const randomIdx = Math.floor(Math.random() * (totalItems - 10)) + 5;
+            reel.scrollTo({
+                top: randomIdx * itemHeight,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    function handleBtnClick() {
+        if (isLevelComplete) {
+            loadLevel(currentLevelIdx + 1);
+        } else {
+            checkAnswer();
+        }
+    }
+
+    function checkAnswer() {
+        const currentSentence = [];
+        const itemHeight = getSlotHeight();
+        const reels = document.querySelectorAll('.reel');
+
+        reels.forEach((reel) => {
+            const index = Math.round(reel.scrollTop / itemHeight);
+            const items = reel.querySelectorAll('.reel-item');
+            
+            if (items[index]) {
+                currentSentence.push(items[index].textContent.trim());
+            } else {
+                currentSentence.push("error");
+            }
+        });
+
+        const target = levels[currentLevelIdx].en;
+        
+        if (arraysEqual(currentSentence, target)) {
+            const displaySentence = target.filter(w => w !== "—").join(' ');
+            handleSuccess(displaySentence);
+        } else {
+            handleFail();
+        }
+    }
+
+    function handleSuccess(text) {
+        isLevelComplete = true;
+        score++;
+        
+        // Play Win Sound
+        playWin();
+
+        [lockLeft, lockRight].forEach(lock => {
+            lock.className = 'lock-icon lock-open';
+            lock.innerText = '🔓';
+        });
+        answerReveal.innerText = text;
+        answerReveal.classList.add('visible');
+        actionBtn.innerText = 'NEXT';
+        actionBtn.classList.add('next-mode');
+    }
+
+    function handleFail() {
+        const locks = [lockLeft, lockRight];
+        locks.forEach(lock => {
+            lock.classList.add('lock-error');
+            lock.classList.remove('shake'); 
+            void lock.offsetWidth; 
+            lock.classList.add('shake');
+        });
+        setTimeout(() => locks.forEach(l => l.classList.remove('lock-error')), 500);
+    }
+
+    function showEndScreen() {
+        resultsArea.style.display = 'flex';
+        finalScoreEl.innerText = `${score} / ${levels.length}`;
+    }
+
+    function getSlotHeight() {
+        const r = document.querySelector(':root');
+        const h = getComputedStyle(r).getPropertyValue('--slot-height');
+        return parseInt(h) || 70;
+    }
+
+    function arraysEqual(a, b) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) return false;
+        }
+        return true;
+    }
+
+    init();
+</script>
+</body>
+</html>
